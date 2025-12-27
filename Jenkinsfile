@@ -21,60 +21,64 @@ pipeline {
 
         stage('Manage AWS EC2 Based on IST Time') {
             steps {
-                sh '''#!/bin/bash
+                withAWS(credentials: 'aws-account-tripare', region: 'ap-south-1') {
 
-                echo "=============================="
-                echo " AWS EC2 Auto Start/Stop JOB "
-                echo "=============================="
+                    sh '''#!/bin/bash
 
-                # Get IST Time
-                current_time=$(TZ=Asia/Kolkata date +%H:%M)
-                echo "Current IST Time: $current_time"
+                    REGION="ap-south-1"
+                    INSTANCE_ID="i-02b8041d7c0ccf9ae"
 
-                hour=${current_time%:*}
-                minute=${current_time#*:}
+                    echo "=============================="
+                    echo " AWS EC2 Auto Start/Stop JOB "
+                    echo "=============================="
 
-                hour=$((10#$hour))
-                minute=$((10#$minute))
+                    # Get IST Time
+                    current_time=$(TZ=Asia/Kolkata date +%H:%M)
+                    echo "Current IST Time: $current_time"
 
-                total_minutes=$((hour * 60 + minute))
+                    hour=${current_time%:*}
+                    minute=${current_time#*:}
 
-                # 09:00 AM = 540 mins
-                # 09:00 PM = 1260 mins
-                if [[ "$total_minutes" -ge 540 && "$total_minutes" -lt 1260 ]]; then
-                  action="start"
-                else
-                  action="stop"
-                fi
+                    hour=$((10#$hour))
+                    minute=$((10#$minute))
 
-                echo "Final Action: $action"
+                    total_minutes=$((hour * 60 + minute))
 
-                INSTANCE_ID="i-02b8041d7c0ccf9ae"
+                    # 09:00 AM = 540 mins
+                    # 09:00 PM = 1260 mins
+                    if [[ "$total_minutes" -ge 540 && "$total_minutes" -lt 1260 ]]; then
+                      action="start"
+                    else
+                      action="stop"
+                    fi
 
-                echo "Checking Current Instance State..."
-                current_status=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --query "Reservations[].Instances[].State.Name" --output text)
-                echo "Current Instance State: $current_status"
+                    echo "Final Action: $action"
 
-                if [[ "$action" == "start" ]]; then
-                  if [[ "$current_status" == "running" ]]; then
-                    echo "Instance already running. No action needed."
-                  else
-                    echo "Starting EC2 Instance..."
-                    aws ec2 start-instances --instance-ids $INSTANCE_ID
-                  fi
-                fi
+                    echo "Checking Current Instance State..."
+                    current_status=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID --region $REGION --query "Reservations[].Instances[].State.Name" --output text)
+                    echo "Current Instance State: $current_status"
 
-                if [[ "$action" == "stop" ]]; then
-                  if [[ "$current_status" == "stopped" ]]; then
-                    echo "Instance already stopped. No action needed."
-                  else
-                    echo "Stopping EC2 Instance..."
-                    aws ec2 stop-instances --instance-ids $INSTANCE_ID
-                  fi
-                fi
+                    if [[ "$action" == "start" ]]; then
+                      if [[ "$current_status" == "running" ]]; then
+                        echo "Instance already running. No action needed."
+                      else
+                        echo "Starting EC2 Instance..."
+                        aws ec2 start-instances --instance-ids $INSTANCE_ID --region $REGION
+                      fi
+                    fi
 
-                echo "Job Completed Successfully"
-                '''
+                    if [[ "$action" == "stop" ]]; then
+                      if [[ "$current_status" == "stopped" ]]; then
+                        echo "Instance already stopped. No action needed."
+                      else
+                        echo "Stopping EC2 Instance..."
+                        aws ec2 stop-instances --instance-ids $INSTANCE_ID --region $REGION
+                      fi
+                    fi
+
+                    echo "Job Completed Successfully"
+                    '''
+                }
             }
         }
     }
