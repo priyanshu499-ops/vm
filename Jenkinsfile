@@ -1,9 +1,9 @@
 pipeline {
     agent any
 
-    // Jenkins cron UTC pe chalta hai
-    // 9 AM IST  = 03:30 UTC
-    // 9 PM IST  = 15:30 UTC
+    // Jenkins cron runs in UTC
+    // 9:00 AM IST  = 03:30 UTC
+    // 9:00 PM IST  = 15:30 UTC
     triggers {
         cron('''
             30 3 * * *
@@ -13,7 +13,7 @@ pipeline {
 
     stages {
 
-        stage('Test Pipeline Running') {
+        stage("Test Pipeline Running") {
             steps {
                 sh 'echo "Pipeline Successfully Triggered..."'
             }
@@ -21,7 +21,8 @@ pipeline {
 
         stage('Manage AWS EC2 Based on IST Time') {
             steps {
-                sh '''
+                sh '''#!/bin/bash
+
                 echo "=============================="
                 echo " AWS EC2 Auto Start/Stop JOB "
                 echo "=============================="
@@ -30,11 +31,16 @@ pipeline {
                 current_time=$(TZ=Asia/Kolkata date +%H:%M)
                 echo "Current IST Time: $current_time"
 
-                hour=$(echo "$current_time" | cut -d':' -f1)
-                minute=$(echo "$current_time" | cut -d':' -f2)
+                hour=${current_time%:*}
+                minute=${current_time#*:}
 
-                total_minutes=$((10#$hour * 60 + 10#$minute))
+                hour=$((10#$hour))
+                minute=$((10#$minute))
 
+                total_minutes=$((hour * 60 + minute))
+
+                # 09:00 AM = 540 mins
+                # 09:00 PM = 1260 mins
                 if [[ "$total_minutes" -ge 540 && "$total_minutes" -lt 1260 ]]; then
                   action="start"
                 else
